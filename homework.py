@@ -42,7 +42,7 @@ def send_message(bot: telegram.Bot, message: str) -> NoReturn:
         logging.debug("Успешная отправка сообщения в Telegram")
     except telegram.error.TelegramError as error:
         logging.error(f"Ошибка при отправке сообщения: {error}")
-        raise ConnectionError from error
+        raise telegram.error.TelegramError
 
 
 def get_api_answer(timestamp: int) -> Dict[str, Any]:
@@ -81,17 +81,20 @@ def parse_status(homework: Dict[str, Any]) -> str:
     homework_name = homework.get("homework_name")
     if not homework_name:
         raise KeyError("Нет ключа 'homework_name'")
-    verdict = HOMEWORK_VERDICTS.get(homework.get("status"))
+    status = homework.get("status")
+    if not status:
+        raise KeyError("Нет ключа 'status'")
+    verdict = HOMEWORK_VERDICTS.get(status)
     if not verdict:
         raise KeyError("API домашки возвращает недокументированный статус")
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
-def check_message(bot, message, old_message) -> str:
+def check_message(bot, message, prev_message) -> str:
     """Функция отправляет сообщение боту, если оно изменилось.
     Функция возвращает сообщение, которые уже было отправлено.
     """
-    if message != old_message:
+    if message != prev_message:
         send_message(bot, message)
     else:
         logging.debug("Повтор сообщения, не отправляется боту")
@@ -111,7 +114,7 @@ def main() -> NoReturn:
         sys.exit()
 
     timestamp = int(time.time())
-    old_message = ""
+    prev_message = ""
 
     while True:
         try:
@@ -120,22 +123,22 @@ def main() -> NoReturn:
             homework = check_response(response)
             if homework:
                 message = parse_status(homework[0])
-                old_message = check_message(bot, message, old_message)
+                prev_message = check_message(bot, message, prev_message)
             else:
                 logging.debug("Нет новых данных")
 
         except ConnectionError as error:
             message = f"Ошибка соединения: {error}"
             logging.exception(message)
-            old_message = check_message(bot, message, old_message)
+            prev_message = check_message(bot, message, prev_message)
         except TypeError as error:
             message = f"Объект несоответствующего типа: {error}"
             logging.exception(message)
-            old_message = check_message(bot, message, old_message)
+            prev_message = check_message(bot, message, prev_message)
         except Exception as error:
             message = f"Сбой в работе программы: {error}"
             logging.exception(message)
-            old_message = check_message(bot, message, old_message)
+            prev_message = check_message(bot, message, prev_message)
 
         finally:
             time.sleep(RETRY_PERIOD)
