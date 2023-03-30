@@ -47,8 +47,8 @@ def send_message(bot: telegram.Bot, message: str) -> NoReturn:
 
 def get_api_answer(timestamp: int) -> Dict[str, Any]:
     """Функция делает запрос к единственному эндпоинту API-сервиса."""
-    logging.debug(f"Запрос к эндпоинту: {ENDPOINT} со временем: {timestamp}")
     payload = {"from_date": timestamp}
+    logging.debug(f"{ENDPOINT}, headers {HEADERS}, params{payload}, timeout=5")
     try:
         homework_statuses = requests.get(
             ENDPOINT, headers=HEADERS, params=payload, timeout=5
@@ -64,12 +64,13 @@ def get_api_answer(timestamp: int) -> Dict[str, Any]:
 
 def check_response(response: Dict[str, Any]) -> List[Any]:
     """Функция проверяет ответ API на соответствие документации."""
+    logging.debug(f"Начинается проверка ответа API: {response}")
     if not isinstance(response, dict):
         raise TypeError("Данные приходят не в виде словаря")
     if "homeworks" not in response:
-        raise TypeError("Нет ключа 'homeworks'")
+        raise KeyError("Нет ключа 'homeworks'")
     if "current_date" not in response:
-        raise TypeError("Нет ключа 'current_date'")
+        raise KeyError("Нет ключа 'current_date'")
     if not isinstance(response["homeworks"], list):
         raise TypeError("Данные приходят не в виде списка")
 
@@ -78,6 +79,7 @@ def check_response(response: Dict[str, Any]) -> List[Any]:
 
 def parse_status(homework: Dict[str, Any]) -> str:
     """Функция извлекает статус о конкретной домашней работе."""
+    logging.debug("Начали парсинг статуса")
     homework_name = homework.get("homework_name")
     if not homework_name:
         raise KeyError("Нет ключа 'homework_name'")
